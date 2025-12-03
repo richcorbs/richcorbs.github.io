@@ -1,0 +1,23 @@
+<!-- Add Group Dialog -->
+<dialog :open="showAddGroupDialog">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" @click="showAddGroupDialog = false"></button>
+      <h3>Add Group</h3>
+    </header>
+    <form @submit.prevent="addGroup">
+      <label>
+        Name
+        <input type="text" x-model="newGroup.name" placeholder="My Investment Group" required />
+      </label>
+      <label>
+        Users to Invite
+        <textarea x-model="newGroup.users_to_invite" placeholder="Enter email addresses, one per line" rows="4"></textarea>
+      </label>
+      <footer style="display: flex; gap: 12px">
+        <button type="submit">Add Group</button>
+        <button type="button" class="secondary outline" @click="showAddGroupDialog = false">Cancel</button>
+      </footer>
+    </form>
+  </article>
+</dialog>

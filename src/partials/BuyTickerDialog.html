@@ -1,0 +1,30 @@
+<!-- Buy Ticker Dialog -->
+<dialog :open="showBuyTickerDialog">
+  <article>
+    <header>
+      <h3>Buy</h3>
+    </header>
+    <form @submit.prevent="buyTicker">
+      <label>
+        Symbol
+        <input type="text" x-model="newTicker.ticker" placeholder="AAPL" required />
+      </label>
+      <label>
+        Qty
+        <input type="number" x-model="newTicker.quantity" placeholder="10" required />
+      </label>
+      <label>
+        Price
+        <input type="number" x-model="newTicker.price" placeholder="100.00" step="0.01" required />
+      </label>
+      <label>
+        Purchase Date
+        <input type="date" x-model="newTicker.buy_date" required />
+      </label>
+      <footer style="display: flex; gap: 12px">
+        <button type="submit">Buy</button>
+        <button type="button" class="secondary outline" @click="showBuyTickerDialog = false">Cancel</button>
+      </footer>
+    </form>
+  </article>
+</dialog>

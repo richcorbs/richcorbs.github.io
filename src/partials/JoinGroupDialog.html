@@ -1,0 +1,19 @@
+<!-- Add Group Dialog -->
+<dialog :open="showJoinGroupDialog">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" @click="showJoinGroupDialog = false;"></button>
+      <h3>Join Group</h3>
+    </header>
+    <form @submit.prevent="joinGroup">
+      <label>
+        Group Code
+        <input type="text" x-model="joinGroupCode" placeholder="123456" required />
+      </label>
+      <footer style="display: flex; gap: 12px">
+        <button type="submit">Join Group</button>
+        <button type="button" class="secondary outline" @click="showJoinGroupDialog = false;">Cancel</button>
+      </footer>
+    </form>
+  </article>
+</dialog>

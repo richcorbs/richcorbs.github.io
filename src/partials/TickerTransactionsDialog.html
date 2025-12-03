@@ -1,0 +1,42 @@
+<!-- Add Group Dialog -->
+<dialog :open="showTickerTransactionsDialog">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" @click="showTickerTransactionsDialog = false; currentTicker = null;"></button>
+      <h3><span x-text="currentTicker"></span> Transactions</h3>
+    </header>
+    <table class="text-sm" style="margin-top:32px;">
+      <thead>
+        <tr class="text-xs uppercase">
+          <th><span class="muted">Buy/Sell</span></th>
+          <th><div class="text-center muted">Qty</div></th>
+          <th><div class="text-center muted">Price/Share</div></th>
+          <th><div class="text-center muted">Date</div></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="transaction in sortedTransactions(transactionsFilteredBySymbol(currentTicker))" :key="`transaction-${transaction.id}`">
+          <tr>
+            <td>
+              <b x-text="transaction.buy_or_sell.toUpperCase()"></b>
+            </td>
+            <td>
+              <div x-text="transaction.quantity" class="muted text-sm text-center"></div>
+            </td>
+            <td>
+              <div x-text="formatCurrency(transaction.price)" class="number text-right"></div>
+            </td>
+            <td class="text-center">
+              <div x-text="transaction.date" class="number text-center"></div>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    <footer class="grid">
+      <div></div>
+      <button type="button" class="secondary outline" @click="showTickerTransactionsDialog = false;currentTicker = null;">Cancel</button>
+    </footer>
+    </form>
+  </article>
+</dialog>

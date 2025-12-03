@@ -1,0 +1,28 @@
+<!-- Sell Ticker Dialog -->
+<dialog :open="showSellTickerDialog">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" @click="showSellTickerDialog = false"></button>
+      <h3>Sell <span x-text="sellTicker.ticker"></span></h3>
+    </header>
+    <form @submit.prevent="submitSellTicker">
+      <p class="muted" x-text="`${sellTicker.ticker} - ${sellTicker.maxQty} shares available`"></p>
+      <label>
+        Qty to Sell
+        <input type="number" x-model="sellTicker.quantity" placeholder="10" required min="1" :max="sellTicker.maxQty" />
+      </label>
+      <label>
+        Sale Price
+        <input type="number" x-model="sellTicker.price" placeholder="100.00" step="0.01" required />
+      </label>
+      <label>
+        Sell Date
+        <input type="date" x-model="sellTicker.sell_date" required />
+      </label>
+      <footer style="display: flex; gap: 12px">
+        <button type="submit">Sell</button>
+        <button type="button" class="secondary outline" @click="showSellTickerDialog = false">Cancel</button>
+      </footer>
+    </form>
+  </article>
+</dialog>

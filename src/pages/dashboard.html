@@ -1,0 +1,392 @@
+<div x-data="dashboardApp()" class="stack gap-l">
+  <section>
+    <hgroup>
+      <h1 style="margin-bottom: 0">Dashboard</h1>
+      <p class="size-xs muted" x-text="subTitle"></p>
+    </hgroup>
+  </section>
+
+  <section class="grid">
+    <article>
+      <div class="flex items-center justify-between">
+        <h2 class="shrink-0">My Tickers</h2>
+        <input type="search" x-model="searchText" placeholder="Ticker" />
+        <button class="primary" @click="showBuyTickerDialog = true" style="margin-top: -15px">Buy</button>
+      </div>
+      <div role="group">
+        <button :aria-current="currentInterval == '1D'" :class="currentInterval === '1D' ? '' : 'outline'" @click="currentInterval='1D'" style="padding-inline: 0">1D</button>
+        <button :aria-current="currentInterval == '1M'" :class="currentInterval === '1M' ? '' : 'outline'" @click="currentInterval='1M'" style="padding-inline: 0">1M</button>
+        <button :aria-current="currentInterval == 'YTD'" :class="currentInterval === 'YTD' ? '' : 'outline'" @click="currentInterval='YTD'" style="padding-inline: 0">YTD</button>
+        <button :aria-current="currentInterval == '1Y'" :class="currentInterval === '1Y' ? '' : 'outline'" @click="currentInterval='1Y'" style="padding-inline: 0">1Y</button>
+        <button :aria-current="currentInterval == '5Y'" :class="currentInterval === '5Y' ? '' : 'outline'" @click="currentInterval='5Y'" style="padding-inline: 0">5Y</button>
+        <button :aria-current="currentInterval == 'ALL'" :class="currentInterval === 'ALL' ? '' : 'outline'" @click="currentInterval='ALL'" style="padding-inline: 0">ALL</button>
+      </div>
+      <div>
+        <table style="margin-top: var(--size-4); margin-bottom: 0">
+          <thead>
+            <tr class="text-uppercase size-xs">
+              <th><label>Ticker</label></th>
+              <th><label class="text-center">Shares</label></th>
+              <th><label class="text-center">Growth %</label></th>
+              <th><span>&nbsp;</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="position in sortedPositions()" :key="`position-${position.ticker}`">
+              <tr>
+                <td>
+                  <a href="#" @click="openTickerTransactionsDialog(position.ticker)"><b x-text="position.ticker"></b></a>
+                </td>
+                <td>
+                  <div x-text="position.availableQty" class="number text-center"></div>
+                </td>
+                <td>
+                  <div x-text="formatPercent(calculatedTickerGrowth(position.ticker))" class="number text-center"></div>
+                </td>
+                <td>
+                  <div class="text-right">
+                    <button x-show="position.availableQty > 0" class="outline" style="margin: 0; padding: 4px 8px; font-size: 0.8rem" @click="openSellDialog(position.ticker)">Sell</button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article>
+      <div class="flex items-center justify-between">
+        <h2>My Groups</h2>
+        <div>
+          <button class="outline" @click="showAddGroupDialog = true">Add</button>
+        </div>
+      </div>
+      <template x-for="group in sortedGroups()" :key="`group-${group.id}`">
+        <div class="flex items-center justify-between" style="margin-bottom: 8px">
+          <div class="grow-1">
+            <a :href="`/group?id=${group.id}`"><b x-text="group.name"></b></a>
+          </div>
+          <div class="cursor-pointer muted" @click="deleteGroup(group.id)">&times;</div>
+        </div>
+      </template>
+    </article>
+  </section>
+  {{ BuyTickerDialog }} {{ SellTickerDialog }} {{ AddGroupDialog }} {{ ConfirmDialog }} {{ TickerTransactionsDialog }}
+</div>
+
+<script>
+  // const pb = new PocketBase("https://ticker-talk.pockethost.io");
+  const pb = new PocketBase("http://127.0.0.1:8090");
+  const marketDataToken = "SnFodi1LOU10dUdWV0RpZmFrZl9mclgyQTRHZDJHd0VYdld1M0RZWDhtST0";
+
+  function dashboardApp() {
+    return {
+      confirmAction: null,
+      confirmMessage: "Are you sure?",
+      currentInterval: "1D",
+      currentIntervalEnd: new Date(Date.now() - 86400000).toISOString().split("T")[0],
+      currentIntervalStart: new Date(Date.now() - 86400000).toISOString().split("T")[0],
+      currentTicker: null,
+      groups: [],
+      mantras: ["Save like you're broke. Spend like you're being watched.", "Compound interest: the closest thing to free money that isn't illegal.", 'Budgeting—because "winging it" isn\'t a financial strategy.', "If you can't buy it twice, you can't afford it once.", "Invest in your future self; they're the one stuck with your decisions.", "Cash flow is king—profits are just royal rumors.", "Buy low, sell high… easier said than portfolio-ed.", "You can't pour from an empty account.", "Time in the market beats timing the market (unless you're psychic).", "Emergency funds: because Murphy's Law has a debit card.", "Every dollar has a job. Don't let yours go unemployed.", "Get rich slow beats get broke fast.", "Watch your pennies—your dollars have trust issues.", 'Diversification: the adult version of "don\'t put all your toys in one box."', "Financial freedom isn't a finish line—it's an operating system."],
+      newGroup: { name: "", users_to_invite: "" },
+      newTicker: { ticker: "", quantity: "", price: "", buy_date: "" },
+      positions: {},
+      prices: {
+        AAPL: { start: 0, end: 0 },
+      },
+      searchText: "",
+      sellTicker: { ticker: "", maxQty: 0, quantity: "", price: "", sell_date: "" },
+      showAddGroupDialog: false,
+      showBuyTickerDialog: false,
+      showConfirmDialog: false,
+      showJoinGroupDialog: false,
+      showSellTickerDialog: false,
+      showTickerTransactionsDialog: false,
+      subTitle: null,
+      tab: "my_tickers",
+      tickers: [],
+      token: "SnFodi1LOU10dUdWV0RpZmFrZl9mclgyQTRHZDJHd0VYdld1M0RZWDhtST0",
+      transactions: [],
+
+      async init() {
+        if (!pb.authStore.isValid) {
+          window.location = "/";
+        } else {
+          const randomIndex = Math.floor(Math.random() * this.mantras.length);
+          this.subTitle = this.mantras[randomIndex];
+
+          await this.getUserDashboardData();
+          await this.calculatePositions();
+          await this.getTickerPricingData(this.currentIntervalStart, this.currentIntervalEnd);
+
+          // Watch for interval changes
+          this.$watch("currentInterval", (value) => {
+            const today = new Date(Date.now() - 86400000); // Yesterday
+            let startDate = new Date(today);
+
+            switch (value) {
+              case "1D":
+                // Start and end are the same (yesterday)
+                startDate = new Date(today);
+                break;
+              case "1M":
+                // 1 month ago
+                startDate = new Date(today);
+                startDate.setMonth(startDate.getMonth() - 1);
+                break;
+              case "YTD":
+                // January 1 of current year
+                startDate = new Date(today.getFullYear(), 0, 2);
+                break;
+              case "1Y":
+                // 1 year ago
+                startDate = new Date(today);
+                startDate.setFullYear(startDate.getFullYear() - 1);
+                break;
+              case "5Y":
+                // 5 years ago
+                startDate = new Date(today);
+                startDate.setFullYear(startDate.getFullYear() - 5);
+                break;
+              case "ALL":
+                // Set to a very early date
+                startDate = new Date("2000-01-01");
+                break;
+            }
+
+            this.currentIntervalStart = startDate.toISOString().split("T")[0];
+            this.getTickerPricingData(this.currentIntervalStart, this.currentIntervalEnd);
+          });
+        }
+      },
+
+      addGroup() {
+        const newId = Math.max(...this.groups.map((g) => g.id)) + 1;
+        this.groups.push({
+          id: newId,
+          name: this.newGroup.name,
+          users: [],
+          tickers: [],
+        });
+
+        // Reset form and close dialog
+        this.newGroup = { name: "", users_to_invite: "" };
+        this.showAddGroupDialog = false;
+      },
+
+      async buyTicker() {
+        const data = {
+          ticker: this.newTicker.ticker,
+          quantity: parseFloat(this.newTicker.quantity),
+          price: parseFloat(this.newTicker.price),
+          buy_or_sell: "buy",
+          user: pb.authStore.record.id,
+          date: this.newTicker.buy_date,
+        };
+
+        const record = await pb.collection("transactions").create(data);
+
+        // Recalculate positions
+        await this.getUserDashboardData();
+        await this.calculatePositions();
+
+        // Reset form and close dialog
+        this.newTicker = { ticker: "", quantity: "", price: "", buy_date: "" };
+        this.showBuyTickerDialog = false;
+      },
+
+      calculatedTickerValueEnd(ticker) {
+        if (!this.positions[ticker] || !this.prices[ticker] || !this.prices[ticker].end) return 0;
+        return this.positions[ticker].availableQty * this.prices[ticker].end;
+      },
+
+      calculatedTickerValueStart(ticker) {
+        if (!this.positions[ticker] || !this.prices[ticker] || !this.prices[ticker].start) return 0;
+        return this.positions[ticker].availableQty * this.prices[ticker].start;
+      },
+
+      calculatedTickerGrowth(ticker) {
+        const start = this.calculatedTickerValueStart(ticker);
+        const end = this.calculatedTickerValueEnd(ticker);
+        if (start === 0) return 0;
+        return (end - start) / start;
+      },
+
+      calculatePositions() {
+        this.positions = {};
+
+        this.transactions.forEach((txn) => {
+          if (!this.positions[txn.ticker]) {
+            this.positions[txn.ticker] = {
+              ticker: txn.ticker,
+              totalBought: 0,
+              totalSold: 0,
+              availableQty: 0,
+            };
+          }
+
+          if (txn.buy_or_sell === "buy") {
+            this.positions[txn.ticker].totalBought += txn.quantity;
+          } else if (txn.buy_or_sell === "sell") {
+            this.positions[txn.ticker].totalSold += txn.quantity;
+          }
+
+          this.positions[txn.ticker].availableQty = this.positions[txn.ticker].totalBought - this.positions[txn.ticker].totalSold;
+        });
+      },
+
+      deleteGroup(id) {
+        const group = this.groups.find((g) => g.id === id);
+        this.showConfirm(`Are you sure you want to delete ${group.name}?`, () => {
+          this.groups = this.groups.filter((g) => g.id !== id);
+          this.showConfirmDialog = false;
+        });
+      },
+
+      formatCurrency(value) {
+        return value.toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      },
+
+      formatPercent(value) {
+        const formatted = value.toLocaleString("en-US", {
+          style: "percent",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        return value > 0 ? `+${formatted}` : formatted;
+      },
+
+      async getTickerPricingData(startDate, endDate) {
+        const symbols = Array.from(this.tickers).join(",");
+        let startJson, endJson;
+
+        // If start and end dates are the same, make one query
+        if (startDate === endDate) {
+          let url = `https://api.marketdata.app/v1/stocks/bulkcandles/D/?symbols=${symbols}&token=${this.token}&date=${startDate}`;
+          let response = await fetch(url);
+          startJson = await response.json();
+          endJson = startJson;
+        } else {
+          // Make two queries for different dates
+          let startUrl = `https://api.marketdata.app/v1/stocks/bulkcandles/D/?symbols=${symbols}&token=${this.token}&date=${startDate}`;
+          let endUrl = `https://api.marketdata.app/v1/stocks/bulkcandles/D/?symbols=${symbols}&token=${this.token}&date=${endDate}`;
+
+          let [startResponse, endResponse] = await Promise.all([fetch(startUrl), fetch(endUrl)]);
+
+          startJson = await startResponse.json();
+          endJson = await endResponse.json();
+        }
+
+        // Populate prices using o (open) for start and c (close) for end
+        if (startJson.symbol && startJson.o && endJson.symbol && endJson.c) {
+          startJson.symbol.forEach((symbol, index) => {
+            this.prices[symbol] = {
+              start: startJson.o[index],
+              end: 0,
+            };
+          });
+
+          endJson.symbol.forEach((symbol, index) => {
+            if (this.prices[symbol]) {
+              this.prices[symbol].end = endJson.c[index];
+            }
+          });
+        }
+        console.log("prices", this.prices);
+      },
+
+      async getUserDashboardData() {
+        const groups = await pb.collection("user_groups").getFullList({ filter: `user="${pb.authStore.record.id}"`, expand: "group,user" });
+        this.groups = groups.map((g) => g.expand.group);
+        const transactions = await pb.collection("transactions").getFullList({ fiter: `user="${pb.authStore.record.id}"` });
+        this.transactions = transactions;
+        this.tickers = new Set();
+        this.transactions.forEach((t) => this.tickers.add(t.ticker));
+      },
+
+      openSellDialog(ticker) {
+        const position = this.positions[ticker];
+        this.sellTicker = {
+          ticker: ticker,
+          name: position.name,
+          maxQty: position.availableQty,
+          qty: "",
+          price: "",
+          sale_date: "",
+        };
+        this.showSellTickerDialog = true;
+      },
+
+      openTickerTransactionsDialog(ticker) {
+        this.showTickerTransactionsDialog = true;
+        this.currentTicker = ticker;
+      },
+
+      showConfirm(message, action) {
+        this.confirmMessage = message;
+        this.confirmAction = action;
+        this.showConfirmDialog = true;
+      },
+
+      sortedGroups() {
+        return [...this.groups].sort((a, b) => {
+          return a.name.localeCompare(b.name);
+        });
+      },
+
+      sortedPositions() {
+        const searchLower = this.searchText.toLowerCase();
+        return Object.values(this.positions)
+          .filter((position) => {
+            if (!searchLower) return true;
+            return position.ticker.toLowerCase().includes(searchLower);
+          })
+          .sort((a, b) => {
+            return a.ticker.localeCompare(b.ticker);
+          });
+      },
+
+      sortedTickers() {
+        this.tickers;
+      },
+
+      sortedTransactions(transactions) {
+        return Object.values(transactions).sort((a, b) => {
+          return a.date.localeCompare(b.date);
+        });
+      },
+
+      async submitSellTicker() {
+        const data = {
+          ticker: this.sellTicker.ticker,
+          quantity: parseFloat(this.sellTicker.quantity),
+          price: parseFloat(this.sellTicker.price),
+          buy_or_sell: "sell",
+          user: pb.authStore.record.id,
+          date: this.sellTicker.sell_date,
+        };
+
+        const record = await pb.collection("transactions").create(data);
+
+        // Recalculate positions
+        await this.getUserDashboardData();
+        await this.calculatePositions();
+
+        // Reset form and close dialog
+        this.sellTicker = { ticker: "", maxQty: 0, quantity: "", price: "", sell_date: "" };
+        this.showSellTickerDialog = false;
+      },
+
+      transactionsFilteredBySymbol(ticker) {
+        return this.transactions.filter((t) => t.ticker == ticker);
+      },
+    };
+  }
+</script>

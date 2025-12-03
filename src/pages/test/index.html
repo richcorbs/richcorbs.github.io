@@ -1,0 +1,62 @@
+<section>
+  <div class="grid">
+    <div></div>
+    <form x-data="signInApp()">
+        <template x-if="signInOrSignUp === 'signIn'">
+          <fieldset>
+            <input type="email" name="email" placeholder="Email" x-model="email" @change="errorMessage=''" />
+            <input type="password" name="password" placeholder="Password" x-model="password" @change="errorMessage=''" />
+            <div class="flex">
+              <input type="submit" @click.prevent="signIn()" value="Sign In" />
+              <input type="submit" @click="signInOrSignUp='signUp'" value="Sign Up" class="outline secondary" />
+            </div>
+            <p class="text-error" x-text="errorMessage"></p>
+          </fieldset>
+        </template>
+        <template x-if="signInOrSignUp === 'signUp'">
+          <fieldset>
+            <input type="text" name="name" placeholder="Name" />
+            <input type="email" name="email" placeholder="Email" />
+            <input type="password" name="password" placeholder="Password" />
+            <input type="password" name="password" placeholder="Password confirmation" />
+            <div class="flex">
+              <input type="submit" @click="signUp($event)" value="Sign Up" />
+              <input type="submit" @click="signInOrSignUp='signIn'" value="Sign In" class="outline secondary" />
+            </div>
+            <p class="text-error" x-text="errorMessage"></p>
+          </fieldset>
+        </template>
+      </fieldset>
+    </form>
+    <div>&nbsp;</div>
+  </div>
+</section>
+<script>
+  // const pb = new PocketBase("https://ticker-talk.pockethost.io");
+  const pb = new PocketBase('http://127.0.0.1:8090');
+
+  function signInApp() {
+    return {
+      email: "",
+      errorMessage: "",
+      password: "",
+      signInOrSignUp: "signIn",
+
+      async signIn() {
+        try {
+          const authData = await pb.collection('users').authWithPassword(
+              this.email,
+              this.password,
+          );
+          window.location = '/dashboard'
+        } catch (e) {
+          this.errorMessage = "Invalid email or password"
+        }
+      },
+
+      signUp(e) {
+
+      }
+    };
+  }
+</script>

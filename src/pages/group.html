@@ -1,0 +1,407 @@
+<div x-data="groupApp()">
+  <section>
+    <div class="flex items-center justify-between">
+      <hgroup>
+        <h1 x-text="group.name" style="margin: 0"></h1>
+        <p class="size-xs muted" x-text="subTitle"></p>
+      </hgroup>
+      <div>
+        <button class="outline" @click="showInviteToGroupDialog = true;">Invite Others</button>
+      </div>
+    </div>
+  </section>
+
+  {{ InviteToGroupDialog }}
+
+  <section x-data="groupApp()">
+    <article>
+      <div role="group">
+        <button :aria-current="currentInterval == '1D'" :class="currentInterval === '1D' ? '' : 'outline'" @click="currentInterval='1D'">1D</button>
+        <button :aria-current="currentInterval == '1M'" :class="currentInterval === '1M' ? '' : 'outline'" @click="currentInterval='1M'">1M</button>
+        <button :aria-current="currentInterval == 'YTD'" :class="currentInterval === 'YTD' ? '' : 'outline'" @click="currentInterval='YTD'">YTD</button>
+        <button :aria-current="currentInterval == '1Y'" :class="currentInterval === '1Y' ? '' : 'outline'" @click="currentInterval='1Y'">1Y</button>
+        <button :aria-current="currentInterval == '5Y'" :class="currentInterval === '5Y' ? '' : 'outline'" @click="currentInterval='5Y'">5Y</button>
+        <button :aria-current="currentInterval == 'ALL'" :class="currentInterval === 'ALL' ? '' : 'outline'" @click="currentInterval='ALL'">ALL</button>
+      </div>
+      <table class="table-striped">
+        <thead>
+          <tr class="size-xs text-uppercase">
+            <th><label>#</label></th>
+            <th><label>Name</label></th>
+            <th><label>Positions</label></th>
+            <th><label class="text-center block">Cost</label></th>
+            <th><label class="text-center block">Growth %</label></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="(user,index) in users" :key="user.id">
+            <tr>
+              <td><span x-text="index+1"></span></td>
+              <td><b x-text="user.name"></b></td>
+              <td x-text="userTickers(user)"></td>
+              <td x-text="formatCurrency(userTickersCost(user))" class="number" style="text-align: right"></td>
+              <td x-text="formatPercent(userTickersPercentGrowth(user))" class="number" style="text-align: right"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top: 32px">Invitees</h3>
+      <table class="table-striped">
+        <thead>
+          <tr class="text-sm uppercase">
+            <th><label>Email</label></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="invitation in invitations" :key="invitation.id">
+            <tr>
+              <td><b x-text="invitation.email"></b></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </article>
+
+    <ConfirmDialog></ConfirmDialog>
+  </section>
+
+  <section style="padding-inline: 32px; margin-top: 32px">
+    <h4>Discussion</h4>
+    <form>
+      <fieldset>
+        <textarea placeholder="New message..." rows="4" x-model="newMessageText"></textarea>
+        <button class="primary" @click="sendMessage">Send</button>
+      </fieldset>
+    </form>
+    <div style="margin-top: 32px">
+      <template x-for="message in messages" :key="message.id">
+        <article>
+          <div>
+            <p x-text="message.text" style="margin-bottom: 0"></p>
+            <div class="flex items-end justify-between">
+              <i class="grow-0 size-xs muted" style="display: block"> <span x-text="message.expand.user.name"></span> • <span x-text="formatDateTime(message.created)"></span> </i>
+              <button class="outline text-xs" @click="showReplyToMessageId = showReplyToMessageId === null ? message.id : null">Reply</button>
+            </div>
+          </div>
+
+          <form x-show="showReplyToMessageId === message.id" style="padding-inline: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0" @submit.prevent="sendReply">
+            <fieldset style="margin-bottom: 0">
+              <textarea placeholder="New reply..." rows="4" x-model="newReplyText" style="margin-bottom: 16px"></textarea>
+              <div class="flex">
+                <button class="primary">Reply</button>
+                <button class="outline" @click.prevent="showReplyToMessageId = null">Cancel</button>
+              </div>
+            </fieldset>
+          </form>
+          <template x-for="reply in message.expand['message_replies(message)']" :key="reply.id">
+            <article style="margin-top: 16px; margin-bottom: 0">
+              <div class="flex justify-between items-end">
+                <div class="grow-1">
+                  <p x-text="reply.text" style="margin-bottom: 0"></p>
+                  <i class="size-xs muted"> <span x-text="reply.expand.user.name"></span> • <span x-text="formatDateTime(reply.created)"></span> </i>
+                </div>
+              </div>
+            </article>
+          </template>
+        </article>
+      </template>
+    </div>
+  </section>
+</div>
+
+<script>
+  // const pb = new PocketBase("https://ticker-talk.pockethost.io");
+  const pb = new PocketBase("http://127.0.0.1:8090");
+
+  function groupApp() {
+    return {
+      confirmAction: null,
+      confirmMessage: "Are you sure?",
+      currentInterval: "1D",
+      endPrices: {},
+      group: {},
+      groupId: null,
+      invitations: [],
+      inviteToGroupEmails: [],
+      messages: [],
+      newMessageText: "",
+      newReplyText: "",
+      showConfirmDialog: false,
+      showInviteToGroupDialog: false,
+      showReplyToMessageId: null,
+      startPrices: {},
+      subTitle: "",
+      transactions: [],
+      subTitles: ["Making cents of every dollar.", "Because money doesn’t grow on trees — but it might with compound interest.", 'Turning "I\'m broke" into "I\'m diversified.', "We put the fun in fundamental analysis.", "Our favorite position? Liquid.", "Profit is our love language.", "We read the fine print so you don't have to mortgage your sanity.", "Because spreadsheets are our idea of a good time.", "Investing in your best interest.", "In numbers we trust.", "We make money moves — literally.", "Where ROI meets LOL.", "Because your future shouldn't depend on vibes alone.", "We take your money seriously — just not ourselves."],
+      users: [],
+      weeksBack: 4,
+
+      async init() {
+        if (!pb.authStore.isValid) {
+          window.location = "/";
+        } else {
+          const urlParams = new URLSearchParams(window.location.search);
+          const id = urlParams.get("id");
+          this.groupId = id;
+
+          // Pick a random subtitle
+          const randomIndex = Math.floor(Math.random() * this.subTitles.length);
+          this.subTitle = this.subTitles[randomIndex];
+
+          if (this.groupId) {
+            await this.getGroup();
+            await this.getTransactions();
+            await this.getStartPrices();
+            await this.getEndPrices();
+            await this.getMessages();
+            await this.getInvitations();
+          } else {
+            window.location = "/dashboard";
+          }
+        }
+      },
+
+      formatCurrency(value) {
+        return value.toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      },
+
+      formatDateTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+      },
+
+      formatPercent(value) {
+        return value.toLocaleString("en-US", {
+          style: "percent",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      },
+
+      async getEndPrices() {
+        this.endPrices = {
+          AAPL: 90.0,
+          BAPL: 91.0,
+          CAPL: 92.0,
+          DAPL: 93.0,
+          CSCO: 90.0,
+          DSCO: 101.0,
+          ESCO: 102.0,
+          FSCO: 103.0,
+        };
+      },
+
+      async getGroup(id) {
+        const data = await pb.collection("user_groups").getFullList({ filter: `group="${this.groupId}"`, expand: "group,user" }, { requestKey: null });
+        this.users = data.map((g) => g.expand.user);
+        this.group = { ...data[0].expand.group };
+      },
+
+      async getInvitations() {
+        this.invitations = await pb.collection("invitations").getFullList(
+          {
+            // filter: `group='${this.groupId}' && accepted!=false`,
+            filter: `group="${this.groupId}" && accepted!=true && rejected!=true`,
+            sort: "email",
+          },
+          { requestKey: null },
+        );
+      },
+
+      async getMessages() {
+        this.messages = await pb.collection("messages").getFullList(
+          {
+            filter: `group = "${this.groupId}"`,
+            sort: "-created",
+            expand: "user,message_replies(message),message_replies(message).user",
+          },
+          { requestKey: null },
+        );
+      },
+
+      async getStartPrices() {
+        this.startPrices = {
+          AAPL: 110.0,
+          BAPL: 121.0,
+          CAPL: 132.0,
+          DAPL: 143.0,
+          CSCO: 150.0,
+          DSCO: 131.0,
+          ESCO: 132.0,
+          FSCO: 143.0,
+        };
+      },
+
+      async getTransactions() {
+        if (!this.users || this.users.length === 0) {
+          this.transactions = [];
+          return;
+        }
+
+        // Get array of user IDs
+        const userIds = this.users.map((user) => user.id);
+
+        // Fetch transactions using the "in" operator with comma-separated string
+        this.transactions = await pb.collection("transactions").getFullList(
+          {
+            filter: `user ?= "${userIds.join(",")}"`,
+            sort: "-created",
+            expand: "user",
+          },
+          { requestKey: null },
+        );
+      },
+
+      async inviteToGroup() {
+        // Parse and clean email list
+        const emails = this.inviteToGroupEmails
+          .split(/[,\s\n]+/)
+          .map((email) => email.trim())
+          .filter((email) => email.length > 0);
+
+        // Validate emails
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const invalidEmails = emails.filter((email) => !emailRegex.test(email));
+
+        if (invalidEmails.length > 0) {
+          alert(`Invalid email(s): ${invalidEmails.join(", ")}`);
+          return;
+        }
+
+        if (emails.length === 0) {
+          alert("Please enter at least one email address");
+          return;
+        }
+
+        try {
+          // Use Promise.all to wait for all invitations
+          const results = await Promise.all(
+            emails.map((email) =>
+              pb.collection("invitations").create(
+                {
+                  group: this.groupId,
+                  email: email,
+                },
+                { requestKey: null },
+              ),
+            ),
+          );
+
+          // Success feedback
+          alert(`Successfully sent ${results.length} invitation(s)`);
+
+          // Clear form and close dialog only after success
+          this.inviteToGroupEmails = "";
+          this.showInviteToGroupDialog = false;
+        } catch (error) {
+          console.error("Error sending invitations:", error);
+          alert("Failed to send invitations. Please try again.");
+        }
+      },
+
+      async sendMessage(event) {
+        event.preventDefault();
+
+        if (!this.newMessageText.trim()) {
+          return;
+        }
+
+        try {
+          await pb.collection("messages").create({
+            text: this.newMessageText,
+            user: pb.authStore.record.id,
+            group: this.groupId,
+          });
+
+          this.newMessageText = "";
+          await this.getMessages();
+        } catch (error) {
+          console.error("Error sending message:", error);
+        }
+      },
+
+      async sendReply(event) {
+        event.preventDefault();
+
+        if (!this.newReplyText.trim() || !this.showReplyToMessageId) {
+          return;
+        }
+
+        try {
+          await pb.collection("message_replies").create({
+            text: this.newReplyText,
+            user: pb.authStore.record.id,
+            message: this.showReplyToMessageId,
+          });
+
+          this.newReplyText = "";
+          this.showReplyToMessageId = null;
+          await this.getMessages();
+        } catch (error) {
+          console.error("Error sending reply:", error);
+        }
+      },
+
+      showConfirm(message, action) {
+        this.confirmMessage = message;
+        this.confirmAction = action;
+        this.showConfirmDialog = true;
+      },
+
+      userTickers(user) {
+        const tickers = this.transactions.filter((transaction) => transaction.user === user.id).map((transaction) => transaction.ticker);
+
+        // Get unique tickers and sort them
+        const uniqueTickers = [...new Set(tickers)].sort();
+
+        return uniqueTickers.join(" • ");
+      },
+
+      userTickersCost(user) {
+        return this.transactions
+          .filter((transaction) => transaction.user === user.id)
+          .reduce((total, transaction) => {
+            return total + transaction.quantity * transaction.price;
+          }, 0);
+      },
+
+      userTickersEndWorth(user) {
+        return this.transactions
+          .filter((transaction) => transaction.user === user.id)
+          .reduce((total, transaction) => {
+            const endPrice = this.endPrices[transaction.ticker] || 0;
+            return total + transaction.quantity * endPrice;
+          }, 0);
+      },
+
+      userTickersPercentGrowth(user) {
+        const start = this.userTickersStartWorth(user);
+        const end = this.userTickersEndWorth(user);
+        if (start === 0) return 0;
+        return (end - start) / start;
+      },
+
+      userTickersStartWorth(user) {
+        return this.transactions
+          .filter((transaction) => transaction.user === user.id)
+          .reduce((total, transaction) => {
+            const startPrice = this.startPrices[transaction.ticker] || 10;
+            return total + transaction.quantity * startPrice;
+          }, 0);
+      },
+    };
+  }
+</script>

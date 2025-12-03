@@ -1,0 +1,19 @@
+<!-- Add Group Dialog -->
+<dialog :open="showInviteToGroupDialog">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" @click="showInviteToGroupDialog = false"></button>
+      <h3>Invite to Group</h3>
+    </header>
+    <form @submit.prevent="inviteToGroup()">
+      <label>
+        Email(s)
+        <textarea x-model="inviteToGroupEmails" rows="4"></textarea>
+      </label>
+      <footer style="display: flex; gap: 12px">
+        <button type="submit">Invite to Group</button>
+        <button type="button" class="secondary outline" @click="showInviteToGroupDialog = false">Cancel</button>
+      </footer>
+    </form>
+  </article>
+</dialog>

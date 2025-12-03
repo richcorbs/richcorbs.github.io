@@ -1,0 +1,13 @@
+<!-- Confirm Dialog -->
+<dialog :open="showConfirmDialog">
+  <article>
+    <header>
+      <h3>Confirm</h3>
+    </header>
+    <p x-text="confirmMessage"></p>
+    <footer style="display: flex; gap: 12px">
+      <button type="submit" @click="confirmAction">Yes</button>
+      <button type="button" class="secondary outline" @click="showConfirmDialog = false">No</button>
+    </footer>
+  </article>
+</dialog>
