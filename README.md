@@ -12,6 +12,7 @@ A lightweight, fast static site generator with live reload and frontmatter suppo
 - **Pretty URLs** - Clean URLs without .html extensions
 - **Fast Builds** - Parallel page processing
 - **Simple** - Easy to understand and customize
+- **Auto Deploy** - Deploy with custom github action
 
 ## Installation
 
