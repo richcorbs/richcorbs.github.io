@@ -1,6 +1,6 @@
-# Node SSG - Static Site Generator
+# My Personal Web Site and Static Site Generator
 
-A lightweight, fast static site generator with live reload and frontmatter support. **Just 345 lines of code.**
+A lightweight, fast static site generator with live reload and frontmatter support. **Under 350 lines of code.**
 
 ## Features
 
@@ -29,7 +29,7 @@ Start the development server with live reload:
 npm run dev
 ```
 
-Server runs at http://localhost:8000
+Dev server runs at http://localhost:8000
 
 ### Production Build
 
