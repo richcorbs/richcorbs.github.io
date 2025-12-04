@@ -113,7 +113,7 @@ function applyTemplates(html, data) {
   });
 }
 
-async function renderPage(rawContent, frontmatter, isMarkdown = true) {
+async function renderPage(rawContent, frontmatter, isMarkdown = true, injectLiveReload = false) {
   // Convert markdown to HTML if needed
   const htmlBody = isMarkdown ? marked.parse(rawContent) : rawContent;
 
@@ -131,6 +131,11 @@ async function renderPage(rawContent, frontmatter, isMarkdown = true) {
   // Apply partials and variables (single pass)
   merged = applyTemplates(merged, frontmatter);
 
+  // Inject live reload script in dev mode
+  if (injectLiveReload) {
+    merged = injectReloadScript(merged);
+  }
+
   return merged;
 }
 
@@ -147,24 +152,25 @@ function outputPathForPage(filename) {
    --------------------------- */
 let reloadClients = [];
 
-function startReloadServerFor(server) {
-  server.on("request", (req, res) => {
-    if (req.url === "/livereload") {
-      res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      });
-      res.write("\n");
-      reloadClients.push(res);
-      req.on("close", () => {
-        reloadClients = reloadClients.filter((r) => r !== res);
-      });
-    }
-  });
+function handleLiveReload(req, res) {
+  if (req.url === "/livereload") {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    res.write("\n");
+    reloadClients.push(res);
+    req.on("close", () => {
+      reloadClients = reloadClients.filter((r) => r !== res);
+    });
+    return true;
+  }
+  return false;
 }
 
 function triggerReload() {
+  console.log(`⟳ Reloading ${reloadClients.length} client(s)...`);
   reloadClients.forEach((res) => {
     res.write(`event: reload\ndata: ${Date.now()}\n\n`);
   });
@@ -191,7 +197,7 @@ async function cleanDist() {
   }
 }
 
-async function buildPagesTask() {
+async function buildPagesTask(injectLiveReload = false) {
   const files = await readFilesRecursive(PAGES);
   const pageFiles = files.filter((f) => f.path.endsWith(".md") || f.path.endsWith(".html"));
 
@@ -204,7 +210,7 @@ async function buildPagesTask() {
       const { data: frontmatter, content } = matter(raw);
 
       // Render page
-      const rendered = await renderPage(content, frontmatter, isMarkdown);
+      const rendered = await renderPage(content, frontmatter, isMarkdown, injectLiveReload);
 
       // Write output
       const out = file.relativePath.endsWith(".html")
@@ -251,13 +257,13 @@ async function copyAssetsTask() {
   }
 }
 
-async function build() {
+async function build(injectLiveReload = false) {
   const startTime = performance.now();
   console.log("Building...");
 
   await cleanDist();
   await loadTemplates();
-  await Promise.all([buildPagesTask(), copyAssetsTask()]);
+  await Promise.all([buildPagesTask(injectLiveReload), copyAssetsTask()]);
 
   const duration = (performance.now() - startTime).toFixed(2);
   console.log(`✓ Build complete (${duration}ms)`);
@@ -274,7 +280,7 @@ function scheduleDebouncedRebuild() {
   rebuildTimer = setTimeout(async () => {
     console.log("\nRebuilding...");
     try {
-      await build();
+      await build(true);
       triggerReload();
     } catch (err) {
       console.error("Build error:", err.message);
@@ -283,8 +289,8 @@ function scheduleDebouncedRebuild() {
 }
 
 async function dev() {
-  // Initial build
-  await build().catch((err) => console.error("Initial build failed:", err));
+  // Initial build with live reload injection
+  await build(true).catch((err) => console.error("Initial build failed:", err));
 
   // Create server with sirv for static files
   const serve = sirv(DIST, {
@@ -294,34 +300,14 @@ async function dev() {
 
   const server = http.createServer(async (req, res) => {
     // Handle live reload endpoint
-    if (req.url === "/livereload") return;
+    if (handleLiveReload(req, res)) return;
 
     // Serve static files with sirv
     serve(req, res, () => {
-      // If sirv doesn't find the file, try injecting reload script for HTML
-      if (req.url.endsWith("/") || !path.extname(req.url)) {
-        const htmlPath = req.url.endsWith("/")
-          ? path.join(DIST, req.url, "index.html")
-          : path.join(DIST, req.url, "index.html");
-
-        fs.readFile(htmlPath, "utf8")
-          .then((data) => {
-            const injected = injectReloadScript(data);
-            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-            res.end(injected);
-          })
-          .catch(() => {
-            res.writeHead(404, { "Content-Type": "text/plain" });
-            res.end("Not Found");
-          });
-      } else {
-        res.writeHead(404, { "Content-Type": "text/plain" });
-        res.end("Not Found");
-      }
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("Not Found");
     });
   });
-
-  startReloadServerFor(server);
 
   // Watch src directory
   chokidar.watch(SRC, {

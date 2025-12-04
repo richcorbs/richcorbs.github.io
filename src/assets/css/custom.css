@@ -24,8 +24,19 @@ article {
   /* Original: var(--pico-border-radius) */
 }
 
+article.card {
+  min-height: 96px;
+}
+
+article.column {
+  max-width: 250px !important;
+  min-width: 250px !important;
+  width: 250px !important;
+  min-height: 64px;
+}
+
 article > article {
-  background-color: color-mix(in oklch, var(--pico-card-background-color) 92%, white 8%) !important;
+  background-color: color-mix(in oklch, var(--pico-card-background-color) 1%, white 10%) !important;
 }
 
 article > footer {
@@ -216,4 +227,30 @@ label {
 
 :where(.text-error) {
   color: var(--color-red) !important;
+}
+
+:where(.cursor-pointer) {
+  cursor: pointer;
+}
+
+/* Kanban drag and drop styles */
+.card {
+  margin-top: 16px;
+}
+
+.card.drag-over {
+  background-color: transparent !important;
+  border: 2px dashed var(--pico-primary);
+  color: transparent;
+}
+
+.drop-zone {
+  height: 96px;
+  margin-top: 16px;
+  border-radius: calc(var(--pico-border-radius) * 2);
+}
+
+.drop-zone.drag-over {
+  background-color: var(--pico-muted-border-color);
+  border: 2px dashed var(--pico-primary);
 }

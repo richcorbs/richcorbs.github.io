@@ -1,0 +1,133 @@
+<div class="flex items-start" x-data="kanban()">
+  <template x-for="(column,columnIndex) in board" :key="column.name">
+    <article class="column" @drop="handleDrop($event, columnIndex)" @dragover.prevent @dragenter.prevent>
+      <h4 x-text="column.name"></h4>
+      <template x-for="(card, cardIndex) in column.cards" :key="card.id">
+        <article
+          class="card cursor-pointer"
+          draggable="true"
+          @dragstart="handleDragStart($event, columnIndex, cardIndex, card)"
+          @dragend="handleDragEnd($event)"
+          @dragover="handleDragOver($event, columnIndex, cardIndex)"
+          :class="{
+            'dragging': draggedCard === card,
+            'drag-over': draggedCard === card && dragOverColumn === columnIndex && dragOverCard === cardIndex
+          }"
+          style="margin-bottom: 0"
+          x-text="card.title"
+        ></article>
+      </template>
+      <!-- Drop zone at the end of the column -->
+      <div
+        x-show="draggedCard !== null && dragOverColumn === columnIndex && dragOverCard === column.cards.length"
+        class="drop-zone drag-over"
+        @dragover="handleDragOver($event, columnIndex, column.cards.length)">
+      </div>
+    </article>
+  </template>
+</div>
+
+<script>
+  function kanban() {
+    return {
+      board: [
+        {
+          name: "backlog",
+          cards: [
+            { id: 1, title: "Card 1" },
+            { id: 2, title: "Card 2" },
+            { id: 3, title: "Card 3" },
+          ],
+        },
+        {
+          name: "todo",
+          cards: [
+            { id: 4, title: "Card 4" },
+            { id: 5, title: "Card 5" },
+            { id: 6, title: "Card 6" },
+            { id: 7, title: "Card 7" },
+          ],
+        },
+        {
+          name: "doing",
+          cards: [
+            { id: 8, title: "Card 8" },
+            { id: 9, title: "Card 9" },
+          ],
+        },
+        {
+          name: "done",
+          cards: [{ id: 10, title: "Card 10" }],
+        },
+        {
+          name: "archive",
+          cards: [],
+        },
+      ],
+
+      draggedCard: null,
+      draggedFrom: { columnIndex: null, cardIndex: null },
+      dragOverColumn: null,
+      dragOverCard: null,
+
+      handleDragStart(event, columnIndex, cardIndex, card) {
+        this.draggedCard = card;
+        this.draggedFrom = { columnIndex, cardIndex };
+        event.dataTransfer.effectAllowed = "move";
+
+        // Remove card from its original position
+        setTimeout(() => {
+          this.board[columnIndex].cards.splice(cardIndex, 1);
+        }, 0);
+      },
+
+      handleDragEnd(event) {
+        // If we didn't drop anywhere valid, put the card back
+        if (this.draggedCard && this.dragOverColumn === null) {
+          this.board[this.draggedFrom.columnIndex].cards.splice(this.draggedFrom.cardIndex, 0, this.draggedCard);
+        }
+
+        this.draggedCard = null;
+        this.draggedFrom = { columnIndex: null, cardIndex: null };
+        this.dragOverColumn = null;
+        this.dragOverCard = null;
+      },
+
+      handleDragOver(event, columnIndex, cardIndex) {
+        event.preventDefault();
+
+        if (!this.draggedCard) return;
+
+        // Only move if position changed
+        if (this.dragOverColumn === columnIndex && this.dragOverCard === cardIndex) {
+          return;
+        }
+
+        // Remove card from current hover position if it exists
+        if (this.dragOverColumn !== null && this.dragOverCard !== null) {
+          const currentIdx = this.board[this.dragOverColumn].cards.findIndex((c) => c.id === this.draggedCard.id);
+          if (currentIdx !== -1) {
+            this.board[this.dragOverColumn].cards.splice(currentIdx, 1);
+          }
+        }
+
+        // Insert at new hover position
+        this.board[columnIndex].cards.splice(cardIndex, 0, this.draggedCard);
+
+        this.dragOverColumn = columnIndex;
+        this.dragOverCard = cardIndex;
+      },
+
+      handleDrop(event, targetColumnIndex) {
+        event.preventDefault();
+
+        // Card is already in the right position from handleDragOver
+        // Just clear the drag state
+        this.draggedCard = null;
+        this.draggedFrom = { columnIndex: null, cardIndex: null };
+        this.dragOverColumn = null;
+        this.dragOverCard = null;
+      },
+    };
+  }
+</script>
